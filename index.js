@@ -1,14 +1,14 @@
-import { format } from "url";
-import { find, merge } from "lodash-es";
+import { filterRevertedCommitsSync } from "conventional-commits-filter";
+import { CommitParser } from "conventional-commits-parser";
+import debugFactory from "debug";
 import getStream from "get-stream";
 import intoStream from "into-stream";
-import { CommitParser } from "conventional-commits-parser";
-import writer from "./wrappers/conventional-changelog-writer.js";
-import { filterRevertedCommitsSync } from "conventional-commits-filter";
+import { find, merge } from "lodash-es";
 import { readPackageUp } from "read-package-up";
-import debugFactory from "debug";
-import loadChangelogConfig from "./lib/load-changelog-config.js";
+import { format } from "url";
 import HOSTS_CONFIG from "./lib/hosts-config.js";
+import loadChangelogConfig from "./lib/load-changelog-config.js";
+import writer from "./wrappers/conventional-changelog-writer.js";
 
 const debug = debugFactory("semantic-release:release-notes-generator");
 
@@ -16,6 +16,7 @@ const debug = debugFactory("semantic-release:release-notes-generator");
  * Generate the changelog for all the commits in `options.commits`.
  *
  * @param {Object} pluginConfig The plugin configuration.
+ * @param {RegExp} pluginConfig.filter allows to filter commits messages against a RegExp
  * @param {String} pluginConfig.preset conventional-changelog preset ('angular', 'atom', 'codemirror', 'ember', 'eslint', 'express', 'jquery', 'jscs', 'jshint').
  * @param {String} pluginConfig.config Requireable npm package with a custom conventional-changelog preset
  * @param {Object} pluginConfig.parserOpts Additional `conventional-changelog-parser` options that will overwrite ones loaded by `preset` or `config`.
@@ -47,6 +48,10 @@ export async function generateNotes(pluginConfig, context) {
   const parsedCommits = filterRevertedCommitsSync(
     commits
       .filter(({ message, hash }) => {
+        if(pluginConfig.filter.test(message)) {
+          debug('Skip commit by %s filter', filter);
+          return false;
+        }
         if (!message.trim()) {
           debug("Skip commit %s with empty message", hash);
           return false;
